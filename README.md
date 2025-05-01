@@ -1,4 +1,4 @@
-| :warning: &nbsp;&nbsp;SQL Buddy is no longer actively maintained. | 
+| :warning: &nbsp;&nbsp;Local CLI is no longer actively maintained. | 
 |-------------------------------------------------------------------|
 
 This software is still free to use under the license provided below, but users should be aware
