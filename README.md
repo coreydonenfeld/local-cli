@@ -1,3 +1,11 @@
+| :warning: &nbsp;&nbsp;Local CLI is no longer actively maintained. | 
+|-------------------------------------------------------------------|
+
+This software is still free to use under the license provided below, but users should be aware
+that it is not currently maintained. No additional releases, including security releases, will
+be made available. Caveat emptor.
+
+
 Local CLI
 =========
 
