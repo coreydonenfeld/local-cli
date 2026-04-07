@@ -2,7 +2,7 @@ import {readdirSync, existsSync} from 'node:fs'
 import {join, relative} from 'node:path'
 
 /**
- * Walk a site's public directory and find any subdirectory containing a .git folder.
+ * Walk a site's web root and find any subdirectory containing a .git folder.
  * Returns paths relative to the webRoot, suitable for rsync --exclude.
  */
 export function findGitDirs(webRoot: string): string[] {
@@ -27,26 +27,57 @@ export function findGitDirs(webRoot: string): string[] {
   return results
 }
 
-/** Standard WPE excludes that always apply */
+/** WPE excludes matching Local's implementation. Paths relative to web root. */
 export const WPE_EXCLUDES = [
+  // WordPress config
   'wp-config.php',
+
+  // WPE internal
   '_wpeprivate/',
+  '.wpe-devkit/',
+  '.wpengine-conf/',
+  '.wpe-connect/',
+
+  // Version control
   '.git/',
   '.gitmodules',
+  '.gitignore',
+
+  // Sync ignore files
   '.wpe-push-ignore',
   '.wpe-pull-ignore',
-  'mu-plugins/mu-plugin.php',
-  'mu-plugins/slt-force-strong-passwords.php',
-  'mu-plugins/wpengine-common/',
-  'mu-plugins/wpe-wp-sign-on-plugin/',
-  'mu-plugins/force-strong-passwords*',
-  'object-cache.php',
+
+  // WPE mu-plugins
+  'wp-content/mu-plugins/mu-plugin.php',
+  'wp-content/mu-plugins/slt-force-strong-passwords.php',
+  'wp-content/mu-plugins/force-strong-passwords*',
+  'wp-content/mu-plugins/wpengine-common/',
+  'wp-content/mu-plugins/wpe-wp-sign-on-plugin/',
+  'wp-content/mu-plugins/wpe-wp-sign-on-plugin.php',
+  'wp-content/mu-plugins/wpe-devkit.php',
+  'wp-content/mu-plugins/wp-cache-memcached/',
+  'wp-content/mu-plugins/wpengine-security-auditor.php',
+  'wp-content/mu-plugins/wpe-cache-plugin/',
+  'wp-content/mu-plugins/wpe-cache-plugin.php',
+  'wp-content/mu-plugins/wpe-update-source-selector/',
+  'wp-content/mu-plugins/wpe-update-source-selector.php',
+
+  // WPE drop-ins and cache
+  'wp-content/object-cache.php',
+  'wp-content/drop-ins/',
+  'wp-content/mysql.sql',
+
+  // Local-specific files
+  'local-phpinfo.php',
+  'local-xdebuginfo.php',
+
+  // Build artifacts
+  'autoupdater_backup_*/',
+  '.bin/*',
+  'vendor/bin/*',
+  'node_modules/puppeteer',
 ]
 
-/**
- * Build the full exclude list for a sync operation.
- * Auto-detects git repos and adds them to the list.
- */
 export function buildExcludes(webRoot: string, extra: string[] = []): string[] {
   const gitDirs = findGitDirs(webRoot)
   if (gitDirs.length > 0) {

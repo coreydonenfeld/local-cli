@@ -26,6 +26,58 @@
         "add-site.js"
       ]
     },
+    "auth": {
+      "aliases": [],
+      "args": {},
+      "description": "configure WP Engine API credentials",
+      "examples": [
+        "$ local-cli auth"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "auth",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "auth.js"
+      ]
+    },
+    "connect": {
+      "aliases": [],
+      "args": {
+        "site": {
+          "description": "site name, ID, or domain",
+          "name": "site",
+          "required": true
+        }
+      },
+      "description": "link a local site to a WP Engine environment",
+      "examples": [
+        "$ local-cli connect my-site"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "connect",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "connect.js"
+      ]
+    },
     "delete-site": {
       "aliases": [],
       "args": {
@@ -134,6 +186,128 @@
         "dist",
         "commands",
         "list-sites.js"
+      ]
+    },
+    "pull": {
+      "aliases": [],
+      "args": {
+        "site": {
+          "description": "site name, ID, or domain",
+          "name": "site",
+          "required": true
+        }
+      },
+      "description": "pull files (and optionally database) from WP Engine",
+      "examples": [
+        "$ local-cli pull my-site",
+        "$ local-cli pull my-site --db",
+        "$ local-cli pull my-site --dry-run",
+        "$ local-cli pull my-site --exclude wp-content/uploads"
+      ],
+      "flags": {
+        "db": {
+          "description": "include database",
+          "name": "db",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "db-only": {
+          "description": "pull database only, skip files",
+          "name": "db-only",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "dry-run": {
+          "description": "show what would change without pulling",
+          "name": "dry-run",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "exclude": {
+          "description": "exclude path from sync (repeatable)",
+          "name": "exclude",
+          "hasDynamicHelp": false,
+          "multiple": true,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "pull",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "pull.js"
+      ]
+    },
+    "push": {
+      "aliases": [],
+      "args": {
+        "site": {
+          "description": "site name, ID, or domain",
+          "name": "site",
+          "required": true
+        }
+      },
+      "description": "push files (and optionally database) to WP Engine",
+      "examples": [
+        "$ local-cli push my-site",
+        "$ local-cli push my-site --db",
+        "$ local-cli push my-site --dry-run",
+        "$ local-cli push my-site --exclude wp-content/uploads"
+      ],
+      "flags": {
+        "db": {
+          "description": "include database",
+          "name": "db",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "db-only": {
+          "description": "push database only, skip files",
+          "name": "db-only",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "dry-run": {
+          "description": "show what would change without pushing",
+          "name": "dry-run",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "no-backup": {
+          "description": "skip pre-push backup on WPE (not recommended)",
+          "name": "no-backup",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "exclude": {
+          "description": "exclude path from sync (repeatable)",
+          "name": "exclude",
+          "hasDynamicHelp": false,
+          "multiple": true,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "push",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "push.js"
       ]
     },
     "restart-site": {
