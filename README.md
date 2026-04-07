@@ -5,9 +5,11 @@ CLI for [Local](https://localwp.com), the #1 local WordPress development tool.
 
 > **Fork notice:** This is a community fork of the [original Local CLI](https://github.com/getflywheel/local-cli) by [WP Engine / Flywheel](https://localwp.com), which is no longer actively maintained. This fork is licensed under the same [MIT license](https://github.com/getflywheel/local-cli/blob/master/package.json). All credit for the original work goes to the Flywheel/WP Engine team.
 
-## Goal
+## Overview
 
 Make every Local action available from the command line so the GUI is optional, not required. Start sites, stop sites, list and filter them - all without opening the app.
+
+This fork was born out of SSH'ing from a laptop into a desktop and needing to start/stop Local sites without access to the GUI. The original CLI was abandoned, so this picks up where it left off with a modernized stack and an interactive TUI that makes the GUI entirely optional.
 
 [![License](https://img.shields.io/npm/l/@getflywheel/local-cli.svg)](https://github.com/coreydonenfeld/local-cli/blob/main/package.json)
 
