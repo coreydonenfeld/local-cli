@@ -33,7 +33,7 @@ $ npm install -g @getflywheel/local-cli
 $ local-cli COMMAND
 running command...
 $ local-cli (-v|--version|version)
-@getflywheel/local-cli/0.0.5 darwin-x64 node-v12.13.0
+@getflywheel/local-cli/0.0.5 darwin-arm64 node-v25.2.1
 $ local-cli --help [COMMAND]
 USAGE
   $ local-cli COMMAND
@@ -42,10 +42,34 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
+* [`local-cli autocomplete [SHELL]`](#local-cli-autocomplete-shell)
 * [`local-cli help [COMMAND]`](#local-cli-help-command)
 * [`local-cli list-sites`](#local-cli-list-sites)
 * [`local-cli start-site SITEID`](#local-cli-start-site-siteid)
 * [`local-cli stop-site SITEID`](#local-cli-stop-site-siteid)
+
+## `local-cli autocomplete [SHELL]`
+
+display autocomplete installation instructions
+
+```
+USAGE
+  $ local-cli autocomplete [SHELL]
+
+ARGUMENTS
+  SHELL  shell type
+
+OPTIONS
+  -r, --refresh-cache  Refresh cache (ignores displaying instructions)
+
+EXAMPLES
+  $ local-cli autocomplete
+  $ local-cli autocomplete bash
+  $ local-cli autocomplete zsh
+  $ local-cli autocomplete --refresh-cache
+```
+
+_See code: [@oclif/plugin-autocomplete](https://github.com/oclif/plugin-autocomplete/blob/v0.3.0/src/commands/autocomplete/index.ts)_
 
 ## `local-cli help [COMMAND]`
 
@@ -72,8 +96,18 @@ list all Local sites
 USAGE
   $ local-cli list-sites
 
-EXAMPLE
+OPTIONS
+  -f, --format=table|json                  [default: table] output format (table or json)
+  -o, --order=name|status                  [default: name] order by field (name or status)
+  -s, --status=running|halted|stopped|all  [default: all] filter by status (running, halted, stopped, or all)
+
+EXAMPLES
   $ local-cli list
+  $ local-cli list --format json
+  $ local-cli list --order name
+  $ local-cli list --order status
+  $ local-cli list --status running
+  $ local-cli list --status halted
 ```
 
 _See code: [src/commands/list-sites.ts](https://github.com/getflywheel/local-cli/blob/v0.0.5/src/commands/list-sites.ts)_

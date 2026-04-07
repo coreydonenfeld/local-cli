@@ -37,12 +37,19 @@ export default class StartSite extends Command {
       }
     `
 
+    this.log(`Starting site ID: ${args.siteID} ...`)
+
     const client = createGraphQLClient()
 
     try {
       const data = await client.request(query, {
         siteID: args.siteID,
       })
+
+      if (!data || !data.startSite) {
+        this.log("\n⚠️  No data returned! The site might not exist or the request failed. \n")
+        process.exit(1)
+      }
 
       const table = new Table({
         head: ['ID', 'Name', 'Status'],
@@ -51,7 +58,7 @@ export default class StartSite extends Command {
       table.push(Object.values(data.startSite))
 
       this.log(table.toString())
-    } catch(error) {
+    } catch (error) {
       console.error("\n⚠️  Something went wrong! Are you sure the site ID is correct? \n")
       console.error(JSON.stringify(error, undefined, 2))
       process.exit(1)

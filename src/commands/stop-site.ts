@@ -36,6 +36,9 @@ export default class StopSite extends Command {
       `
 
       const client = createGraphQLClient()
+
+      console.log(`Stopping site ID: ${args.siteID} ...`)
+
       try {
         const data = await client.request(query, {
           siteID: args.siteID,
@@ -55,4 +58,3 @@ export default class StopSite extends Command {
       }
     }
 }
-
