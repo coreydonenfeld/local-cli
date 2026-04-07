@@ -1,95 +1,116 @@
-import Table = require('cli-table')
-import {Command, flags} from '@oclif/command'
-import createGraphQLClient, {gql} from '../helpers/graphql-client'
+import {Command, Flags} from '@oclif/core'
+import {listSites, Site} from '../helpers/local-api'
+import {formatStatus, getSiteUrl, SEP} from '../helpers/display'
+import {loadGroups, getGroupForSite} from '../helpers/groups'
 
 export default class ListSites extends Command {
-    static description = 'list all Local sites'
+  static hiddenAliases = ['ls']
+  static description = 'list all Local sites'
 
-    static examples = [
-      '$ local-cli list',
-      '$ local-cli list --format json',
-      '$ local-cli list --order name',
-      '$ local-cli list --order status',
-      '$ local-cli list --status running',
-      '$ local-cli list --status halted',
-    ]
+  static examples = [
+    '$ local-cli ls',
+    '$ local-cli ls --format json',
+    '$ local-cli ls --status running',
+    '$ local-cli ls --group Projects',
+  ]
 
-    static flags = {
-      format: flags.string({
-        char: 'f',
-        description: 'output format (table or json)',
-        options: ['table', 'json'],
-        default: 'table',
-      }),
-      order: flags.string({
-        char: 'o',
-        description: 'order by field (name or status)',
-        options: ['name', 'status'],
-        default: 'name',
-      }),
-      status: flags.string({
-        char: 's',
-        description: 'filter by status (running, halted, stopped, or all)',
-        options: ['running', 'halted', 'stopped', 'all'],
-        default: 'all',
-      }),
+  static flags = {
+    format: Flags.string({
+      char: 'f',
+      description: 'output format (table or json)',
+      options: ['table', 'json'],
+      default: 'table',
+    }),
+    order: Flags.string({
+      char: 'o',
+      description: 'order by field (name or status)',
+      options: ['name', 'status'],
+      default: 'name',
+    }),
+    status: Flags.string({
+      char: 's',
+      description: 'filter by status (running, halted, stopped, or all)',
+      options: ['running', 'halted', 'stopped', 'all'],
+      default: 'all',
+    }),
+    group: Flags.string({
+      char: 'g',
+      description: 'filter by group name',
+    }),
+  }
+
+  async run(): Promise<void> {
+    const {flags} = await this.parse(ListSites)
+
+    let sites: Site[]
+    try {
+      sites = await listSites()
+    } catch {
+      console.log('▲ Could not connect to Local. Is it running?')
+      return
     }
 
-    static args = []
+    const groups = loadGroups()
 
-    async run() {
-      const {flags} = this.parse(ListSites)
+    if (flags.group) {
+      const target = flags.group.toLowerCase()
+      sites = sites.filter(s => {
+        const g = getGroupForSite(s.id, groups)
+        return g !== null && g.toLowerCase() === target
+      })
+    }
 
-      const query = gql`
-          {
-              sites {
-                  id
-                  name
-                  status
-              }
-          }
-      `
+    if (flags.status && flags.status !== 'all') {
+      const requested = flags.status.toLowerCase()
+      sites = sites.filter(site => {
+        const st = (site.status || '').toLowerCase()
+        if (requested === 'halted') return st === 'halted' || st === 'stopped'
+        return st === requested
+      })
+    }
 
-      const client = createGraphQLClient()
-      const data = await client.request(query)
+    if (flags.order === 'name') sites.sort((a, b) => a.name.localeCompare(b.name))
+    else if (flags.order === 'status') sites.sort((a, b) => a.status.localeCompare(b.status))
 
-      let sites = data.sites
+    if (flags.format === 'json') {
+      const enriched = sites.map(s => ({...s, group: getGroupForSite(s.id, groups)}))
+      console.log(JSON.stringify(enriched, null, 2))
+      return
+    }
 
-      // Filter by status if requested
-      if (flags.status && flags.status !== 'all') {
-        const requested = flags.status.toLowerCase()
+    if (sites.length === 0) {
+      console.log('No sites found.')
+      return
+    }
 
-        if (requested === 'halted') {
-          // Accept either 'halted' or 'stopped' values coming from Local
-          sites = sites.filter((site: any) => {
-            const st = (site.status || '').toLowerCase()
-            return st === 'halted' || st === 'stopped'
-          })
-        } else {
-          sites = sites.filter((site: any) => (site.status || '').toLowerCase() === requested)
-        }
+    if (flags.group) {
+      for (const site of sites) {
+        const dot = site.status.toLowerCase() === 'running' ? '●' : '○'
+        console.log(`${dot} ${site.name} (${formatStatus(site.status)})`)
+        console.log(`  ID:  ${site.id}`)
+        console.log(`  URL: ${getSiteUrl(site)}`)
+      }
+    } else {
+      const grouped = new Map<string, Site[]>()
+      for (const site of sites) {
+        const g = getGroupForSite(site.id, groups) || 'Ungrouped'
+        if (!grouped.has(g)) grouped.set(g, [])
+        grouped.get(g)!.push(site)
       }
 
-      // Sort sites based on the order flag
-      if (flags.order === 'name') {
-        sites = sites.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
-      } else if (flags.order === 'status') {
-        sites = sites.sort((a: { status: string }, b: { status: string }) => a.status.localeCompare(b.status))
-      }
-
-      // Output in the specified format
-      if (flags.format === 'json') {
-        this.log(JSON.stringify(sites, null, 2))
-      } else {
-        const table = new Table({
-          head: ['ID', 'Name', 'Status'],
-        })
-
-        for (const item of sites) {
-          table.push(Object.values(item))
+      for (const [groupName, groupSites] of grouped) {
+        console.log(`\n${groupName}`)
+        console.log(SEP)
+        for (const site of groupSites) {
+          const dot = site.status.toLowerCase() === 'running' ? '●' : '○'
+          console.log(`${dot} ${site.name} (${formatStatus(site.status)})`)
+          console.log(`  ID:  ${site.id}`)
+          console.log(`  URL: ${getSiteUrl(site)}`)
         }
-
-        this.log(table.toString())
       }
     }
+
+    console.log(SEP)
+    console.log(`${sites.length} site${sites.length === 1 ? '' : 's'}`)
+  }
 }

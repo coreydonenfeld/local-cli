@@ -1,0 +1,16 @@
+diff --git a/node_modules/@inquirer/search/dist/index.js b/node_modules/@inquirer/search/dist/index.js
+index a589429..ada61b8 100644
+--- a/node_modules/@inquirer/search/dist/index.js
++++ b/node_modules/@inquirer/search/dist/index.js
+@@ -120,8 +120,9 @@ export default createPrompt((config, done) => {
+         }
+         else if (isTabKey(key) && selectedChoice) {
+             rl.clearLine(0); // Remove the tab character.
+-            rl.write(selectedChoice.name);
+-            setSearchTerm(selectedChoice.name);
++            const tabValue = selectedChoice.short || selectedChoice.name;
++            rl.write(tabValue);
++            setSearchTerm(tabValue);
+         }
+         else if (status !== 'loading' && (isUpKey(key) || isDownKey(key))) {
+             rl.clearLine(0);

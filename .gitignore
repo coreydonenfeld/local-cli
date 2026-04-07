@@ -1,9 +1,9 @@
 *-debug.log
 *-error.log
-/.nyc_output
 /dist
+*.tsbuildinfo
+oclif.manifest.json
 /lib
-/package-lock.json
 /tmp
 node_modules
 .idea

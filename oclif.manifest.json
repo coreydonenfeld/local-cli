@@ -1,1 +1,254 @@
-{"version":"0.0.5","commands":{"list-sites":{"id":"list-sites","description":"list all Local sites","pluginName":"@getflywheel/local-cli","pluginType":"core","aliases":[],"examples":["$ local-cli list","$ local-cli list --format json","$ local-cli list --order name","$ local-cli list --order status","$ local-cli list --status running","$ local-cli list --status halted"],"flags":{"format":{"name":"format","type":"option","char":"f","description":"output format (table or json)","options":["table","json"],"default":"table"},"order":{"name":"order","type":"option","char":"o","description":"order by field (name or status)","options":["name","status"],"default":"name"},"status":{"name":"status","type":"option","char":"s","description":"filter by status (running, halted, stopped, or all)","options":["running","halted","stopped","all"],"default":"all"}},"args":[]},"start-site":{"id":"start-site","description":"start a Local site and all of its services","pluginName":"@getflywheel/local-cli","pluginType":"core","aliases":[],"examples":["$ local-cli start-site 6mC6PsMCh"],"flags":{},"args":[{"name":"siteID","required":true}]},"stop-site":{"id":"stop-site","description":"stop a Local site and all of its services","pluginName":"@getflywheel/local-cli","pluginType":"core","aliases":[],"flags":{"help":{"name":"help","type":"boolean","char":"h","description":"show CLI help","allowNo":false}},"args":[{"name":"siteID","required":true}]}}}
+{
+  "commands": {
+    "add-site": {
+      "aliases": [],
+      "args": {},
+      "description": "create a new Local site",
+      "examples": [
+        "$ local-cli add-site"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [
+        "add",
+        "new"
+      ],
+      "id": "add-site",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "add-site.js"
+      ]
+    },
+    "delete-site": {
+      "aliases": [],
+      "args": {
+        "siteID": {
+          "description": "site ID or name",
+          "name": "siteID",
+          "required": true
+        }
+      },
+      "description": "permanently delete a Local site and all its files",
+      "examples": [
+        "$ local-cli delete my-site"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [
+        "delete",
+        "rm"
+      ],
+      "id": "delete-site",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "delete-site.js"
+      ]
+    },
+    "list-sites": {
+      "aliases": [],
+      "args": {},
+      "description": "list all Local sites",
+      "examples": [
+        "$ local-cli ls",
+        "$ local-cli ls --format json",
+        "$ local-cli ls --status running",
+        "$ local-cli ls --group Projects"
+      ],
+      "flags": {
+        "format": {
+          "char": "f",
+          "description": "output format (table or json)",
+          "name": "format",
+          "default": "table",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "table",
+            "json"
+          ],
+          "type": "option"
+        },
+        "order": {
+          "char": "o",
+          "description": "order by field (name or status)",
+          "name": "order",
+          "default": "name",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "name",
+            "status"
+          ],
+          "type": "option"
+        },
+        "status": {
+          "char": "s",
+          "description": "filter by status (running, halted, stopped, or all)",
+          "name": "status",
+          "default": "all",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "running",
+            "halted",
+            "stopped",
+            "all"
+          ],
+          "type": "option"
+        },
+        "group": {
+          "char": "g",
+          "description": "filter by group name",
+          "name": "group",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [
+        "ls"
+      ],
+      "id": "list-sites",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "list-sites.js"
+      ]
+    },
+    "restart-site": {
+      "aliases": [],
+      "args": {
+        "siteID": {
+          "description": "site ID or name",
+          "name": "siteID",
+          "required": true
+        }
+      },
+      "description": "restart a Local site and all of its services",
+      "examples": [
+        "$ local-cli restart my-site"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [
+        "restart"
+      ],
+      "id": "restart-site",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "restart-site.js"
+      ]
+    },
+    "sites": {
+      "aliases": [],
+      "args": {},
+      "description": "interactive site manager -- browse, search, start, and stop sites",
+      "examples": [
+        "$ local-cli sites"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "sites",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "sites.js"
+      ]
+    },
+    "start-site": {
+      "aliases": [],
+      "args": {
+        "siteID": {
+          "description": "site ID or name",
+          "name": "siteID",
+          "required": true
+        }
+      },
+      "description": "start a Local site and all of its services",
+      "examples": [
+        "$ local-cli start my-site"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [
+        "start"
+      ],
+      "id": "start-site",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "start-site.js"
+      ]
+    },
+    "stop-site": {
+      "aliases": [],
+      "args": {
+        "siteID": {
+          "description": "site ID or name",
+          "name": "siteID",
+          "required": true
+        }
+      },
+      "description": "stop a Local site and all of its services",
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [
+        "stop"
+      ],
+      "id": "stop-site",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "stop-site.js"
+      ]
+    }
+  },
+  "version": "0.0.7"
+}

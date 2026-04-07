@@ -1,67 +1,12 @@
-import {Command} from '@oclif/command'
-import createGraphQLClient, {gql} from '../helpers/graphql-client'
-import getSiteId from '../helpers/get-site-id'
-import Table = require('cli-table')
+import {SiteActionCommand} from '../helpers/site-action'
+import {startSite} from '../helpers/local-api'
 
-export default class StartSite extends Command {
+export default class StartSite extends SiteActionCommand {
+  static hiddenAliases = ['start']
   static description = 'start a Local site and all of its services'
+  static examples = ['$ local-cli start my-site']
 
-  static examples = [
-    '$ local-cli start-site 6mC6PsMCh',
-  ]
-
-  static flags = {}
-
-  static args = [
-    {name: 'siteID', required: true},
-  ]
-
-  async run() {
-    const {args} = this.parse(StartSite)
-
-    // Automatic name lookup
-    var siteName = args.siteID;
-    if(getSiteId(siteName)){
-      var siteID = getSiteId(args.siteID);
-      console.log('Automatically found SiteID for ' + siteName + ' = ' + siteID )
-      args.siteID = siteID
-    }
-
-    const query = gql`
-      mutation ($siteID: ID!) {
-        startSite(id: $siteID) {
-          id
-          name
-          status
-        }
-      }
-    `
-
-    this.log(`Starting site ID: ${args.siteID} ...`)
-
-    const client = createGraphQLClient()
-
-    try {
-      const data = await client.request(query, {
-        siteID: args.siteID,
-      })
-
-      if (!data || !data.startSite) {
-        this.log("\n⚠️  No data returned! The site might not exist or the request failed. \n")
-        process.exit(1)
-      }
-
-      const table = new Table({
-        head: ['ID', 'Name', 'Status'],
-      })
-
-      table.push(Object.values(data.startSite))
-
-      this.log(table.toString())
-    } catch (error) {
-      console.error("\n⚠️  Something went wrong! Are you sure the site ID is correct? \n")
-      console.error(JSON.stringify(error, undefined, 2))
-      process.exit(1)
-    }
-  }
+  actionLabel = 'Starting'
+  actionIcon = '▶'
+  action = startSite
 }
