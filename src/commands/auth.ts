@@ -17,10 +17,10 @@ export default class Auth extends Command {
     console.log('Generate API credentials at https://my.wpengine.com/api_access\n')
 
     try {
-      const apiKeyId = await quitableInput({message: 'API Key ID:'})
-      const apiKeySecret = await quitableInput({message: 'API Key Secret:'})
+      const username = await quitableInput({message: 'API Username (Key ID):'})
+      const password = await quitableInput({message: 'API Password (Key Secret):'})
 
-      saveCredentials(apiKeyId, apiKeySecret)
+      saveCredentials(username, password)
       console.log('✓ Credentials saved (permissions restricted to owner only)')
     } catch (error) {
       if (error instanceof Error && (error.name === 'ExitPromptError' || error.name === 'QuitError')) {

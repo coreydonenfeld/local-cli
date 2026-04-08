@@ -6,8 +6,8 @@ const CAPI_BASE = 'https://api.wpengineapi.com/v1'
 const CREDENTIALS_PATH = join(homedir(), '.local-cli', 'credentials.json')
 
 interface WpeCredentials {
-  apiKeyId: string
-  apiKeySecret: string
+  username: string
+  password: string
 }
 
 interface WpeInstall {
@@ -28,22 +28,22 @@ interface WpeBackup {
 }
 
 function loadCredentials(): WpeCredentials {
-  const fromEnv = process.env.WPE_API_KEY_ID && process.env.WPE_API_KEY_SECRET
+  const fromEnv = process.env.WPE_API_USERNAME && process.env.WPE_API_PASSWORD
   if (fromEnv) {
-    return {apiKeyId: process.env.WPE_API_KEY_ID!, apiKeySecret: process.env.WPE_API_KEY_SECRET!}
+    return {username: process.env.WPE_API_USERNAME!, password: process.env.WPE_API_PASSWORD!}
   }
 
   if (!existsSync(CREDENTIALS_PATH)) {
     throw new Error(
       'WP Engine credentials not found.\n' +
-      'Set WPE_API_KEY_ID and WPE_API_KEY_SECRET environment variables,\n' +
+      'Set WPE_API_USERNAME and WPE_API_PASSWORD environment variables,\n' +
       `or create ${CREDENTIALS_PATH} with your API credentials.\n` +
       'Generate API credentials at https://my.wpengine.com/api_access'
     )
   }
 
   const data = JSON.parse(readFileSync(CREDENTIALS_PATH, 'utf-8'))
-  if (!data.wpengine?.apiKeyId || !data.wpengine?.apiKeySecret) {
+  if (!data.wpengine?.username || !data.wpengine?.password) {
     throw new Error(`Invalid credentials file at ${CREDENTIALS_PATH}`)
   }
   return data.wpengine
@@ -51,7 +51,7 @@ function loadCredentials(): WpeCredentials {
 
 async function wpeRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const creds = loadCredentials()
-  const auth = Buffer.from(`${creds.apiKeyId}:${creds.apiKeySecret}`).toString('base64')
+  const auth = Buffer.from(`${creds.username}:${creds.password}`).toString('base64')
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 30_000)
 
@@ -121,17 +121,17 @@ export async function registerSshKey(publicKey: string): Promise<void> {
   })
 }
 
-export function saveCredentials(apiKeyId: string, apiKeySecret: string): void {
+export function saveCredentials(username: string, password: string): void {
   const dir = join(homedir(), '.local-cli')
   if (!existsSync(dir)) {
     mkdirSync(dir, {recursive: true})
     chmodSync(dir, 0o700)
   }
-  writeFileSync(CREDENTIALS_PATH, JSON.stringify({wpengine: {apiKeyId, apiKeySecret}}, null, 2))
+  writeFileSync(CREDENTIALS_PATH, JSON.stringify({wpengine: {username, password}}, null, 2))
   chmodSync(CREDENTIALS_PATH, 0o600)
 }
 
 export function hasCredentials(): boolean {
-  if (process.env.WPE_API_KEY_ID && process.env.WPE_API_KEY_SECRET) return true
+  if (process.env.WPE_API_USERNAME && process.env.WPE_API_PASSWORD) return true
   return existsSync(CREDENTIALS_PATH)
 }
