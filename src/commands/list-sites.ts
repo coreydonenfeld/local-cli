@@ -2,6 +2,7 @@ import {Command, Flags} from '@oclif/core'
 import {listSites, Site} from '../helpers/local-api'
 import {formatStatus, getSiteUrl, SEP} from '../helpers/display'
 import {loadGroups, getGroupForSite} from '../helpers/groups'
+import {ensureLocalRunning} from '../helpers/ensure-local'
 
 export default class ListSites extends Command {
   static hiddenAliases = ['ls']
@@ -42,11 +43,13 @@ export default class ListSites extends Command {
   async run(): Promise<void> {
     const {flags} = await this.parse(ListSites)
 
+    if (!await ensureLocalRunning()) return
+
     let sites: Site[]
     try {
       sites = await listSites()
     } catch {
-      console.log('▲ Could not connect to Local. Is it running?')
+      console.log('▲ Could not fetch sites.')
       return
     }
 

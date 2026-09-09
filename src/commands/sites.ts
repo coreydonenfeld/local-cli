@@ -4,6 +4,7 @@ import select from '@inquirer/select'
 import {Site, listSites, startSite, stopSite, restartSite, deleteSite, addSite, waitForJob} from '../helpers/local-api'
 import {formatStatus, getSiteUrl, printPanel} from '../helpers/display'
 import {loadGroups, getGroupForSite} from '../helpers/groups'
+import {ensureLocalRunning} from '../helpers/ensure-local'
 import {promptTheme} from '../helpers/prompts'
 import confirm from '@inquirer/confirm'
 
@@ -73,8 +74,10 @@ export default class Sites extends Command {
 
   async run(): Promise<void> {
     await this.parse(Sites)
-    let keepGoing = true
 
+    if (!await ensureLocalRunning()) return
+
+    let keepGoing = true
     const groups = loadGroups()
 
     while (keepGoing) {
@@ -82,7 +85,7 @@ export default class Sites extends Command {
       try {
         sites = await fetchSites()
       } catch {
-        console.log('▲ Could not connect to Local. Is it running?')
+        console.log('▲ Could not fetch sites.')
         return
       }
 

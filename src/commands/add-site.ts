@@ -5,6 +5,7 @@ import {addSite, waitForJob, listSites} from '../helpers/local-api'
 import {printPanel} from '../helpers/display'
 import {phpVersions, mysqlVersions, webServers} from '../helpers/local-services'
 import {quitableInput, quitableSelect, QuitError} from '../helpers/prompts'
+import {ensureLocalRunning} from '../helpers/ensure-local'
 
 export default class AddSite extends Command {
   static hiddenAliases = ['add', 'new']
@@ -13,6 +14,8 @@ export default class AddSite extends Command {
 
   async run(): Promise<void> {
     await this.parse(AddSite)
+
+    if (!await ensureLocalRunning()) return
 
     const phpChoices = phpVersions()
     const dbChoices = mysqlVersions()

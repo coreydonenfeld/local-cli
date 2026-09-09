@@ -1,6 +1,7 @@
 import {Args, Command} from '@oclif/core'
 import getSiteId from './get-site-id'
 import {printPanel} from './display'
+import {ensureLocalRunning} from './ensure-local'
 import type {Site} from './local-api'
 
 export type ActionFn = (siteID: string) => Promise<Site>
@@ -16,6 +17,8 @@ export abstract class SiteActionCommand extends Command {
 
   async run(): Promise<void> {
     const {args} = await this.parse(this.constructor as typeof SiteActionCommand)
+
+    if (!await ensureLocalRunning()) return
 
     const resolvedId = getSiteId(args.siteID)
     if (resolvedId) args.siteID = resolvedId
