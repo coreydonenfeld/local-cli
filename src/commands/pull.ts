@@ -6,6 +6,7 @@ import {dryRunSync, executeSync} from '../helpers/wpe-rsync'
 import {pullDatabase} from '../helpers/wpe-db'
 import {printPanel} from '../helpers/display'
 import {promptTheme} from '../helpers/prompts'
+import {pickSite} from '../helpers/pick-site'
 
 export default class Pull extends Command {
   static description = 'pull files (and optionally database) from WP Engine'
@@ -18,7 +19,7 @@ export default class Pull extends Command {
   ]
 
   static args = {
-    site: Args.string({description: 'site name, ID, or domain', required: true}),
+    site: Args.string({description: 'site name, ID, or domain'}),
   }
 
   static flags = {
@@ -31,17 +32,18 @@ export default class Pull extends Command {
   async run(): Promise<void> {
     const {args, flags} = await this.parse(Pull)
     const excludes = flags.exclude || []
+    const siteInput = args.site || await pickSite()
 
     let info
     try {
-      info = await resolveWpeSite(args.site)
+      info = await resolveWpeSite(siteInput)
     } catch (err) {
       console.log(`▲ ${err instanceof Error ? err.message : err}`)
       return
     }
 
-    console.log(`Pulling from WP Engine: ${info.installName} (${info.remoteDomain})`)
-    printPanel({id: info.siteId, name: info.siteName, status: 'pulling'})
+    const wpe = {installName: info.installName, remoteDomain: info.remoteDomain, environment: info.connection.remoteSiteEnv}
+    printPanel({id: info.siteId, name: info.siteName, status: 'pulling'}, `↓ Pulling from WP Engine...`, wpe)
 
     await ensureKeyRegistered()
 

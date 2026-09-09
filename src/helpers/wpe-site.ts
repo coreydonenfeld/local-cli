@@ -27,6 +27,18 @@ export interface WpeSiteInfo {
   connection: HostConnection
 }
 
+export function hasWpeConnection(siteId: string): boolean {
+  const sitesPath = join(homedir(), 'Library/Application Support/Local/sites.json')
+  try {
+    const sites = JSON.parse(readFileSync(sitesPath, 'utf-8'))
+    const site = sites[siteId]
+    if (!site) return false
+    return (site.hostConnections || []).some((c: any) => c.hostId === 'wpe')
+  } catch {
+    return false
+  }
+}
+
 export async function resolveWpeSite(siteInput: string): Promise<WpeSiteInfo> {
   const sitesPath = join(homedir(), 'Library/Application Support/Local/sites.json')
   const sites = JSON.parse(readFileSync(sitesPath, 'utf-8'))

@@ -1,6 +1,6 @@
 import {Command, Flags} from '@oclif/core'
 import {listSites, Site} from '../helpers/local-api'
-import {formatStatus, getSiteUrl, SEP} from '../helpers/display'
+import {formatStatus, getSiteUrl, SEP, statusDot} from '../helpers/display'
 import {loadGroups, getGroupForSite} from '../helpers/groups'
 import {ensureLocalRunning} from '../helpers/ensure-local'
 
@@ -88,7 +88,7 @@ export default class ListSites extends Command {
 
     if (flags.group) {
       for (const site of sites) {
-        const dot = site.status.toLowerCase() === 'running' ? '●' : '○'
+        const dot = statusDot(site.status)
         console.log(`${dot} ${site.name} (${formatStatus(site.status)})`)
         console.log(`  ID:  ${site.id}`)
         console.log(`  URL: ${getSiteUrl(site)}`)
@@ -105,7 +105,7 @@ export default class ListSites extends Command {
         console.log(`\n${groupName}`)
         console.log(SEP)
         for (const site of groupSites) {
-          const dot = site.status.toLowerCase() === 'running' ? '●' : '○'
+          const dot = statusDot(site.status)
           console.log(`${dot} ${site.name} (${formatStatus(site.status)})`)
           console.log(`  ID:  ${site.id}`)
           console.log(`  URL: ${getSiteUrl(site)}`)

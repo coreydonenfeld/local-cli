@@ -6,6 +6,7 @@ import {join} from 'node:path'
 import getSiteId from '../helpers/get-site-id'
 import {hasCredentials, listAccounts, listInstalls} from '../helpers/wpe-api'
 import {promptTheme} from '../helpers/prompts'
+import {pickSite} from '../helpers/pick-site'
 
 export default class Connect extends Command {
   static description = 'link a local site to a WP Engine environment'
@@ -15,7 +16,7 @@ export default class Connect extends Command {
   ]
 
   static args = {
-    site: Args.string({description: 'site name, ID, or domain', required: true}),
+    site: Args.string({description: 'site name, ID, or domain'}),
   }
 
   async run(): Promise<void> {
@@ -26,16 +27,18 @@ export default class Connect extends Command {
       return
     }
 
+    const siteInput = args.site || await pickSite()
+
     const sitesPath = join(homedir(), 'Library/Application Support/Local/sites.json')
     const sites = JSON.parse(readFileSync(sitesPath, 'utf-8'))
 
-    let siteId = args.site
-    const resolved = getSiteId(args.site)
+    let siteId = siteInput
+    const resolved = getSiteId(siteInput)
     if (resolved) siteId = resolved
 
     const site = sites[siteId]
     if (!site) {
-      console.log(`▲ Site "${args.site}" not found in Local`)
+      console.log(`▲ Site "${siteInput}" not found in Local`)
       return
     }
 
@@ -45,8 +48,10 @@ export default class Connect extends Command {
       return
     }
 
+    console.log('Connect to WP Engine ("q" to quit at any point)\n')
+
     try {
-      console.log('Fetching WP Engine accounts...\n')
+      console.log('Fetching accounts...')
       const accounts = await listAccounts()
 
       if (accounts.length === 0) {
@@ -60,7 +65,7 @@ export default class Connect extends Command {
         theme: promptTheme,
       })
 
-      console.log('\nFetching installs...\n')
+      console.log('\nFetching installs...')
       const installs = await listInstalls(accountId)
 
       if (installs.length === 0) {

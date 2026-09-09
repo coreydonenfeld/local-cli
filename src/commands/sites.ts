@@ -4,6 +4,8 @@ import select from '@inquirer/select'
 import {Site, listSites, startSite, stopSite, restartSite, deleteSite, addSite, waitForJob} from '../helpers/local-api'
 import {formatStatus, getSiteUrl, printPanel} from '../helpers/display'
 import {loadGroups, getGroupForSite} from '../helpers/groups'
+import {hasWpeConnection, resolveWpeSite} from '../helpers/wpe-site'
+import {hasCredentials} from '../helpers/wpe-api'
 import {ensureLocalRunning} from '../helpers/ensure-local'
 import {promptTheme} from '../helpers/prompts'
 import confirm from '@inquirer/confirm'
@@ -175,6 +177,16 @@ export default class Sites extends Command {
             shortcuts.s = 'start'
           }
 
+          if (hasCredentials() && hasWpeConnection(site.id)) {
+            choices.push({name: '[p] ↓ Pull from WPE', value: 'pull'})
+            choices.push({name: '[u] ↑ Push to WPE', value: 'push'})
+            shortcuts.p = 'pull'
+            shortcuts.u = 'push'
+          } else if (hasCredentials() && !hasWpeConnection(site.id)) {
+            choices.push({name: '[n] ⟷ Connect to WPE', value: 'connect'})
+            shortcuts.n = 'connect'
+          }
+
           choices.push({name: '[d] ✕ Delete site', value: 'delete'})
           choices.push({name: '[b] ⟵ Back to list', value: 'back'})
           choices.push({name: '[q] Quit', value: 'quit'})
@@ -257,6 +269,152 @@ export default class Sites extends Command {
                 notice = `URL: ${siteUrl}`
               }
 
+              break
+            }
+
+            case 'pull': {
+              clearScreen()
+              printPanel(site, `↓ Pulling from WP Engine...`)
+              try {
+                const info = await resolveWpeSite(site.id)
+                const {ensureKeyRegistered} = await import('../helpers/wpe-ssh')
+                const {dryRunSync, executeSync} = await import('../helpers/wpe-rsync')
+                await ensureKeyRegistered()
+                const preview = dryRunSync(info.installName, info.webRoot, 'pull')
+                if (preview.filesChanged === 0) {
+                  notice = '✓ No changes to pull'
+                } else {
+                  clearScreen()
+                  printPanel(site)
+                  const yes = await confirm({
+                    message: `Pull ${preview.filesChanged} file(s) from ${info.installName}?`,
+                    default: true,
+                    theme: promptTheme,
+                  })
+                  if (yes) {
+                    clearScreen()
+                    printPanel(site, `↓ Pulling ${preview.filesChanged} file(s)...`)
+                    const result = executeSync(info.installName, info.webRoot, 'pull')
+                    notice = `✓ Pulled ${result.filesChanged} file(s) from ${info.installName}`
+                  }
+                }
+              } catch (err) {
+                notice = `▲ Pull failed: ${err instanceof Error ? err.message : err}`
+              }
+              break
+            }
+
+            case 'push': {
+              clearScreen()
+              printPanel(site, `↑ Pushing to WP Engine...`)
+              try {
+                const info = await resolveWpeSite(site.id)
+                const {ensureKeyRegistered} = await import('../helpers/wpe-ssh')
+                const {dryRunSync, executeSync} = await import('../helpers/wpe-rsync')
+                const {createBackup, purgeCache} = await import('../helpers/wpe-api')
+                await ensureKeyRegistered()
+
+                const envLabel = info.connection.remoteSiteEnv || 'unknown'
+                if (envLabel === 'production') {
+                  clearScreen()
+                  printPanel(site)
+                  const prodOk = await confirm({
+                    message: '▲ You are pushing to PRODUCTION. Are you sure?',
+                    default: false,
+                    theme: promptTheme,
+                  })
+                  if (!prodOk) break
+                }
+
+                clearScreen()
+                printPanel(site, '↑ Creating backup on WPE...')
+                try { await createBackup(info.installId) } catch {}
+
+                const preview = dryRunSync(info.installName, info.webRoot, 'push')
+                if (preview.filesChanged === 0) {
+                  notice = '✓ No changes to push'
+                } else {
+                  clearScreen()
+                  printPanel(site)
+                  const yes = await confirm({
+                    message: `Push ${preview.filesChanged} file(s) to ${info.installName} (${envLabel})?`,
+                    default: true,
+                    theme: promptTheme,
+                  })
+                  if (yes) {
+                    clearScreen()
+                    printPanel(site, `↑ Pushing ${preview.filesChanged} file(s)...`)
+                    const result = executeSync(info.installName, info.webRoot, 'push')
+                    await purgeCache(info.installId)
+                    notice = `✓ Pushed ${result.filesChanged} file(s) to ${info.installName}`
+                  }
+                }
+              } catch (err) {
+                notice = `▲ Push failed: ${err instanceof Error ? err.message : err}`
+              }
+              break
+            }
+
+            case 'connect': {
+              clearScreen()
+              printPanel(site, '⟷ Connecting to WP Engine...')
+              try {
+                const {listAccounts, listInstalls} = await import('../helpers/wpe-api')
+                const iselect = (await import('@inquirer/select')).default
+                const {readFileSync, writeFileSync} = await import('node:fs')
+                const {homedir} = await import('node:os')
+                const {join} = await import('node:path')
+
+                const accounts = await listAccounts()
+                if (accounts.length === 0) {
+                  notice = '▲ No WP Engine accounts found'
+                  break
+                }
+
+                clearScreen()
+                printPanel(site)
+                const accountId = await iselect({
+                  message: 'Select WPE account:',
+                  choices: accounts.map(a => ({name: a.name, value: a.id})),
+                  theme: promptTheme,
+                })
+
+                const installs = await listInstalls(accountId)
+                if (installs.length === 0) {
+                  notice = '▲ No installs found for this account'
+                  break
+                }
+
+                const installId = await iselect({
+                  message: 'Select install:',
+                  choices: installs.map(i => ({
+                    name: `${i.name} (${i.environment}) - ${i.primary_domain}`,
+                    value: i.id,
+                  })),
+                  theme: promptTheme,
+                })
+
+                const install = installs.find(i => i.id === installId)!
+                const sitesPath = join(homedir(), 'Library/Application Support/Local/sites.json')
+                const allSites = JSON.parse(readFileSync(sitesPath, 'utf-8'))
+                const siteData = allSites[site.id]
+                if (!siteData.hostConnections) siteData.hostConnections = []
+                siteData.hostConnections.push({
+                  hostId: 'wpe',
+                  userId: '',
+                  accountId,
+                  remoteSiteId: installId,
+                  remoteSiteEnv: install.environment,
+                  database: true,
+                  databaseOnly: false,
+                  magicSync: true,
+                })
+                writeFileSync(sitesPath, JSON.stringify(allSites, null, 2))
+                notice = `✓ Connected to ${install.name} (${install.environment})`
+              } catch (err) {
+                if (err instanceof Error && err.name === 'ExitPromptError') break
+                notice = `▲ Connect failed: ${err instanceof Error ? err.message : err}`
+              }
               break
             }
 

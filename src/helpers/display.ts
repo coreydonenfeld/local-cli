@@ -21,19 +21,40 @@ export function getSiteUrl(site: Site): string {
   return `http://${site.name.toLowerCase().replace(/\s+/g, '-')}.local`
 }
 
-function siteNotice(site: Site): string {
-  const s = site.status.toLowerCase()
-  if (s === 'running') return `● ${site.name} is running`
-  if (['stopping', 'starting', 'restarting'].includes(s)) return `▲ ${site.name} is stuck (${s})`
-  return `○ ${site.name} is ${s}`
+export function statusDot(status: string): string {
+  const s = status.toLowerCase()
+  if (s === 'running') return '●'
+  if (['stopping', 'starting', 'restarting'].includes(s)) return '▲'
+  if (s === 'unknown') return '◌'
+  return '○'
 }
 
-export function printPanel(site: Site, notice?: string): void {
+function siteNotice(site: Site): string {
+  const s = site.status.toLowerCase()
+  const dot = statusDot(s)
+  if (s === 'running') return `${dot} ${site.name} is running`
+  if (['stopping', 'starting', 'restarting'].includes(s)) return `${dot} ${site.name} is stuck (${s})`
+  if (s === 'unknown') return `${dot} ${site.name} (status unknown - Local may not be running)`
+  return `${dot} ${site.name} is ${s}`
+}
+
+export interface WpeInfo {
+  installName: string
+  remoteDomain: string
+  environment: string
+}
+
+export function printPanel(site: Site, notice?: string, wpe?: WpeInfo): void {
   console.log(notice || siteNotice(site))
   console.log(SEP)
   console.log(`Name:   ${site.name}`)
   console.log(`ID:     ${site.id}`)
-  console.log(`Status: ${formatStatus(site.status)}`)
+  if (wpe) {
+    console.log(`WPE:    ${wpe.installName} (${wpe.environment})`)
+    console.log(`Remote: ${wpe.remoteDomain}`)
+  } else {
+    console.log(`Status: ${formatStatus(site.status)}`)
+  }
   console.log(`URL:    ${getSiteUrl(site)}`)
   console.log(SEP)
 }
