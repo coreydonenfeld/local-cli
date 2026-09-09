@@ -4,6 +4,9 @@ export interface Site {
   id: string
   name: string
   status: string
+  /** Local's own site URL. Absent only on results from older selections. */
+  url?: string
+  domain?: string
 }
 
 export interface Job {
@@ -36,6 +39,8 @@ export async function listSites(): Promise<Site[]> {
         id
         name
         status
+        url
+        domain
       }
     }
   `
@@ -50,6 +55,8 @@ export async function startSite(siteID: string): Promise<Site> {
         id
         name
         status
+        url
+        domain
       }
     }
   `
@@ -64,6 +71,8 @@ export async function stopSite(siteID: string): Promise<Site> {
         id
         name
         status
+        url
+        domain
       }
     }
   `
@@ -78,6 +87,8 @@ export async function restartSite(siteID: string): Promise<Site> {
         id
         name
         status
+        url
+        domain
       }
     }
   `

@@ -56,7 +56,7 @@ export default class Push extends Command {
 
     const envLabel = info.connection.remoteSiteEnv || 'unknown'
     const wpe = {installName: info.installName, remoteDomain: info.remoteDomain, environment: envLabel}
-    printPanel({id: info.siteId, name: info.siteName, status: 'pushing'}, `↑ Pushing to WP Engine...`, wpe)
+    printPanel({id: info.siteId, name: info.siteName, status: 'pushing', domain: info.siteDomain}, `↑ Pushing to WP Engine...`, wpe)
 
     // Safety: confirm push to production
     if (envLabel === 'production') {

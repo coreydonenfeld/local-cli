@@ -53,7 +53,7 @@ export default class Pull extends Command {
     }
 
     const wpe = {installName: info.installName, remoteDomain: info.remoteDomain, environment: info.connection.remoteSiteEnv}
-    printPanel({id: info.siteId, name: info.siteName, status: 'pulling'}, `↓ Pulling from WP Engine...`, wpe)
+    printPanel({id: info.siteId, name: info.siteName, status: 'pulling', domain: info.siteDomain}, `↓ Pulling from WP Engine...`, wpe)
 
     await ensureKeyRegistered()
 

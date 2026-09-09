@@ -17,7 +17,15 @@ export function formatStatus(status: string): string {
   return `${color}${status}${RESET}`
 }
 
+/**
+ * Local's domain is set at creation and edited independently of the site name,
+ * so it cannot be derived from the name -- "GRID Alternatives" is
+ * gridalternatives.local, not grid-alternatives.local. Slugifying is a last
+ * resort for callers holding a Site that predates these fields.
+ */
 export function getSiteUrl(site: Site): string {
+  if (site.url) return site.url
+  if (site.domain) return `http://${site.domain}`
   return `http://${site.name.toLowerCase().replace(/\s+/g, '-')}.local`
 }
 
