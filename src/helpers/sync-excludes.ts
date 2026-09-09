@@ -1,5 +1,6 @@
 import {readdirSync, existsSync} from 'node:fs'
 import {join, relative} from 'node:path'
+import {logAbove} from './progress'
 
 /**
  * Walk a site's web root and find any subdirectory containing a .git folder.
@@ -81,7 +82,7 @@ export const WPE_EXCLUDES = [
 export function buildExcludes(webRoot: string, extra: string[] = []): string[] {
   const gitDirs = findGitDirs(webRoot)
   if (gitDirs.length > 0) {
-    console.log(`Auto-excluding ${gitDirs.length} git repo${gitDirs.length > 1 ? 's' : ''}: ${gitDirs.join(', ')}`)
+    logAbove(`Auto-excluding ${gitDirs.length} git repo${gitDirs.length > 1 ? 's' : ''}: ${gitDirs.join(', ')}`)
   }
   return [...WPE_EXCLUDES, ...gitDirs, ...extra]
 }

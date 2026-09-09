@@ -1,4 +1,4 @@
-import {execFileSync} from 'node:child_process'
+import {spawn} from 'node:child_process'
 import {existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
@@ -9,6 +9,16 @@ interface RsyncResult {
   filesChanged: number
   output: string
 }
+
+/** Called for each item rsync reports, with the running count. */
+export type ProgressFn = (file: string, count: number) => void
+
+/**
+ * rsync itemize codes: `YXcstpoguax path`, plus keywords like `*deleting`.
+ * Only items rsync intends to change are printed, so these lines are the
+ * change set -- the --stats block is not.
+ */
+const CHANGE_LINE = /^(\*\w+|[<>ch.][fdLDS])/
 
 function loadIgnoreFile(webRoot: string, filename: string): string[] {
   const path = join(webRoot, filename)
@@ -30,53 +40,75 @@ function buildExcludeFile(webRoot: string, direction: 'push' | 'pull', extraExcl
   return excludeFile
 }
 
-function parseRsyncOutput(output: string): number {
-  const lines = output.split('\n').filter(l =>
-    l.trim() &&
-    !l.startsWith('sending') &&
-    !l.startsWith('receiving') &&
-    !l.startsWith('total') &&
-    !l.startsWith('sent') &&
-    !l.startsWith('.') &&
-    !l.startsWith('building file list')
-  )
-  return lines.length
-}
+function runRsync(args: string[], onProgress?: ProgressFn, timeout?: number): Promise<RsyncResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('rsync', args)
+    let output = ''
+    let stderr = ''
+    let pending = ''
+    let filesChanged = 0
 
-function runRsync(args: string[], timeout?: number): RsyncResult {
-  try {
-    const output = execFileSync('rsync', args, {
-      encoding: 'utf-8',
-      timeout: timeout || 0,
-      maxBuffer: 50 * 1024 * 1024,
+    const timer = timeout ? setTimeout(() => child.kill('SIGTERM'), timeout) : undefined
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      const text = chunk.toString()
+      output += text
+      pending += text
+
+      const lines = pending.split('\n')
+      pending = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!CHANGE_LINE.test(line)) continue
+        filesChanged++
+        onProgress?.(line.replace(/^\S+\s+/, ''), filesChanged)
+      }
     })
-    return {filesChanged: parseRsyncOutput(output), output}
-  } catch (err: any) {
-    // Exit code 24 = "some files vanished before they could be transferred" -- treat as success
-    if (err.status === 24 && err.stdout) {
-      return {filesChanged: parseRsyncOutput(err.stdout), output: err.stdout}
-    }
-    throw err
-  }
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+
+    child.on('error', err => {
+      if (timer) clearTimeout(timer)
+      reject(err)
+    })
+
+    child.on('close', code => {
+      if (timer) clearTimeout(timer)
+      // 24 = "some files vanished before they could be transferred"
+      if (code === 0 || code === 24) {
+        resolve({filesChanged, output})
+        return
+      }
+      reject(new Error(`rsync exited with code ${code}\n${stderr}`))
+    })
+  })
 }
 
-export function dryRunSync(
+function baseArgs(excludeFile: string): string[] {
+  return [
+    '--recursive', '--links', '--times', '--compress',
+    '--stats',
+    // One line per changed item, so progress and the change count are real.
+    '--out-format=%i %n',
+    '--exclude-from', excludeFile,
+    '-e', rsyncSshCommand(),
+  ]
+}
+
+export async function dryRunSync(
   installName: string,
   webRoot: string,
   direction: 'push' | 'pull',
   extraExcludes: string[] = [],
-): RsyncResult {
+  onProgress?: ProgressFn,
+): Promise<RsyncResult> {
   const excludeFile = buildExcludeFile(webRoot, direction, extraExcludes)
-  const sshCmd = rsyncSshCommand()
   const remote = remotePath(installName)
   const local = webRoot.endsWith('/') ? webRoot : `${webRoot}/`
 
-  const args = [
-    '--recursive', '--links', '--times', '--compress',
-    '--dry-run', '--stats',
-    '--exclude-from', excludeFile,
-    '-e', sshCmd,
-  ]
+  const args = [...baseArgs(excludeFile), '--dry-run']
 
   if (direction === 'pull') {
     args.push('--delete', remote, local)
@@ -85,29 +117,24 @@ export function dryRunSync(
   }
 
   try {
-    return runRsync(args, 120_000)
+    return await runRsync(args, onProgress, 120_000)
   } finally {
     rmSync(excludeFile, {recursive: true, force: true})
   }
 }
 
-export function executeSync(
+export async function executeSync(
   installName: string,
   webRoot: string,
   direction: 'push' | 'pull',
   extraExcludes: string[] = [],
-): RsyncResult {
+  onProgress?: ProgressFn,
+): Promise<RsyncResult> {
   const excludeFile = buildExcludeFile(webRoot, direction, extraExcludes)
-  const sshCmd = rsyncSshCommand()
   const remote = remotePath(installName)
   const local = webRoot.endsWith('/') ? webRoot : `${webRoot}/`
 
-  const args = [
-    '--recursive', '--links', '--times', '--compress',
-    '--stats',
-    '--exclude-from', excludeFile,
-    '-e', sshCmd,
-  ]
+  const args = baseArgs(excludeFile)
 
   if (direction === 'pull') {
     args.push('--delete', remote, local)
@@ -117,7 +144,7 @@ export function executeSync(
   }
 
   try {
-    return runRsync(args)
+    return await runRsync(args, onProgress)
   } finally {
     rmSync(excludeFile, {recursive: true, force: true})
   }

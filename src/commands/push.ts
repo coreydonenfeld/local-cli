@@ -8,6 +8,7 @@ import {pushDatabase} from '../helpers/wpe-db'
 import {printPanel} from '../helpers/display'
 import {promptTheme} from '../helpers/prompts'
 import {pickSite} from '../helpers/pick-site'
+import {startSpinner} from '../helpers/progress'
 
 export default class Push extends Command {
   static description = 'push files (and optionally database) to WP Engine'
@@ -89,8 +90,12 @@ export default class Push extends Command {
     }
 
     if (!flags['db-only']) {
-      console.log('\nChecking for changes...')
-      const preview = dryRunSync(info.installName, info.webRoot, 'push', excludes)
+      console.log('')
+      const checking = startSpinner('Checking for changes...')
+      const preview = await dryRunSync(info.installName, info.webRoot, 'push', excludes, (file, count) => {
+        checking.update(`Checking for changes... ${count} found - ${file}`)
+      })
+      checking.stop()
 
       if (preview.filesChanged === 0) {
         console.log('No file changes to push.')
@@ -113,9 +118,12 @@ export default class Push extends Command {
           return
         }
 
-        console.log('Pushing files...')
-        const result = executeSync(info.installName, info.webRoot, 'push', excludes)
-        console.log(`✓ ${result.filesChanged} file(s) synced`)
+        const total = preview.filesChanged
+        const pushing = startSpinner(`Pushing ${total} file(s)...`)
+        const result = await executeSync(info.installName, info.webRoot, 'push', excludes, (file, count) => {
+          pushing.update(`[${count}/${total}] ${file}`)
+        })
+        pushing.stop(`✓ ${result.filesChanged} file(s) synced`)
       }
     }
 

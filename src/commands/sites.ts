@@ -280,7 +280,7 @@ export default class Sites extends Command {
                 const {ensureKeyRegistered} = await import('../helpers/wpe-ssh')
                 const {dryRunSync, executeSync} = await import('../helpers/wpe-rsync')
                 await ensureKeyRegistered()
-                const preview = dryRunSync(info.installName, info.webRoot, 'pull')
+                const preview = await dryRunSync(info.installName, info.webRoot, 'pull')
                 if (preview.filesChanged === 0) {
                   notice = '✓ No changes to pull'
                 } else {
@@ -294,7 +294,7 @@ export default class Sites extends Command {
                   if (yes) {
                     clearScreen()
                     printPanel(site, `↓ Pulling ${preview.filesChanged} file(s)...`)
-                    const result = executeSync(info.installName, info.webRoot, 'pull')
+                    const result = await executeSync(info.installName, info.webRoot, 'pull')
                     notice = `✓ Pulled ${result.filesChanged} file(s) from ${info.installName}`
                   }
                 }
@@ -330,7 +330,7 @@ export default class Sites extends Command {
                 printPanel(site, '↑ Creating backup on WPE...')
                 try { await createBackup(info.installId) } catch {}
 
-                const preview = dryRunSync(info.installName, info.webRoot, 'push')
+                const preview = await dryRunSync(info.installName, info.webRoot, 'push')
                 if (preview.filesChanged === 0) {
                   notice = '✓ No changes to push'
                 } else {
@@ -344,7 +344,7 @@ export default class Sites extends Command {
                   if (yes) {
                     clearScreen()
                     printPanel(site, `↑ Pushing ${preview.filesChanged} file(s)...`)
-                    const result = executeSync(info.installName, info.webRoot, 'push')
+                    const result = await executeSync(info.installName, info.webRoot, 'push')
                     await purgeCache(info.installId)
                     notice = `✓ Pushed ${result.filesChanged} file(s) to ${info.installName}`
                   }

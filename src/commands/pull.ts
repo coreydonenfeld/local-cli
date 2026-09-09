@@ -7,6 +7,7 @@ import {pullDatabase} from '../helpers/wpe-db'
 import {printPanel} from '../helpers/display'
 import {promptTheme} from '../helpers/prompts'
 import {pickSite} from '../helpers/pick-site'
+import {startSpinner} from '../helpers/progress'
 
 export default class Pull extends Command {
   static description = 'pull files (and optionally database) from WP Engine'
@@ -49,8 +50,12 @@ export default class Pull extends Command {
 
     if (!flags['db-only']) {
       // Always dry-run first to show what will change
-      console.log('\nChecking for changes...')
-      const preview = dryRunSync(info.installName, info.webRoot, 'pull', excludes)
+      console.log('')
+      const checking = startSpinner('Checking for changes...')
+      const preview = await dryRunSync(info.installName, info.webRoot, 'pull', excludes, (file, count) => {
+        checking.update(`Checking for changes... ${count} found - ${file}`)
+      })
+      checking.stop()
 
       if (preview.filesChanged === 0) {
         console.log('No file changes to pull.')
@@ -73,9 +78,12 @@ export default class Pull extends Command {
           return
         }
 
-        console.log('Pulling files...')
-        const result = executeSync(info.installName, info.webRoot, 'pull', excludes)
-        console.log(`✓ ${result.filesChanged} file(s) synced`)
+        const total = preview.filesChanged
+        const pulling = startSpinner(`Pulling ${total} file(s)...`)
+        const result = await executeSync(info.installName, info.webRoot, 'pull', excludes, (file, count) => {
+          pulling.update(`[${count}/${total}] ${file}`)
+        })
+        pulling.stop(`✓ ${result.filesChanged} file(s) synced`)
       }
     }
 
