@@ -52,7 +52,7 @@
   "repository": "coreydonenfeld/local-cli",
   "scripts": {
     "postinstall": "patch-package",
-    "build": "rm -rf dist && tsc -b",
+    "build": "rm -rf dist oclif.manifest.json && tsc -b",
     "postpack": "rm -f oclif.manifest.json",
     "prepack": "npm run build && oclif manifest && oclif readme",
     "test": "vitest run",
