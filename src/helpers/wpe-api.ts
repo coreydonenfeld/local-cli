@@ -74,6 +74,10 @@ async function wpeRequest<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json() as Promise<T>
 }
 
+export async function getCurrentUser(): Promise<{id: string; email: string; first_name: string; last_name: string}> {
+  return wpeRequest('/user')
+}
+
 export async function getInstall(installId: string): Promise<WpeInstall> {
   return wpeRequest<WpeInstall>(`/installs/${installId}`)
 }
