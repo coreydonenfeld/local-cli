@@ -2,7 +2,7 @@ import {readFileSync} from 'node:fs'
 import {homedir} from 'node:os'
 import {join} from 'node:path'
 import getSiteId from './get-site-id'
-import {getInstall} from './wpe-api'
+import {resolveInstall} from './wpe-api'
 
 interface HostConnection {
   hostId: string
@@ -60,7 +60,7 @@ export async function resolveWpeSite(siteInput: string): Promise<WpeSiteInfo> {
     )
   }
 
-  const install = await getInstall(wpeConn.remoteSiteId)
+  const install = await resolveInstall(wpeConn.remoteSiteId, wpeConn.remoteSiteEnv)
 
   return {
     siteId,
@@ -69,7 +69,7 @@ export async function resolveWpeSite(siteInput: string): Promise<WpeSiteInfo> {
     sitePath: site.path || site.longPath,
     webRoot: join(site.path || site.longPath, 'app', 'public'),
     installName: install.name,
-    installId: wpeConn.remoteSiteId,
+    installId: install.id,
     remoteDomain: install.primary_domain,
     connection: wpeConn,
   }

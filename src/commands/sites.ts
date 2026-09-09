@@ -403,7 +403,7 @@ export default class Sites extends Command {
                   hostId: 'wpe',
                   userId: '',
                   accountId,
-                  remoteSiteId: installId,
+                  remoteSiteId: install.site.id,
                   remoteSiteEnv: install.environment,
                   database: true,
                   databaseOnly: false,

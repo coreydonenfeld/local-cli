@@ -42,9 +42,10 @@ export async function ensureKeyRegistered(): Promise<void> {
   console.log('SSH key registered')
 }
 
+/** WPE reports MD5 fingerprints as bare colon-hex, so drop ssh-keygen's `MD5:` prefix. */
 function getFingerprint(): string {
-  const output = execFileSync('ssh-keygen', ['-lf', PUB_PATH], {encoding: 'utf-8'})
-  return output.split(' ')[1]
+  const output = execFileSync('ssh-keygen', ['-E', 'md5', '-lf', PUB_PATH], {encoding: 'utf-8'})
+  return output.split(' ')[1].replace(/^MD5:/, '')
 }
 
 export function sshArgs(installName: string, prefix: string): string[] {

@@ -89,7 +89,7 @@ export default class Connect extends Command {
         hostId: 'wpe',
         userId: '',
         accountId,
-        remoteSiteId: installId,
+        remoteSiteId: install.site.id,
         remoteSiteEnv: install.environment,
         database: true,
         databaseOnly: false,

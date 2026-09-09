@@ -15,6 +15,17 @@ interface WpeInstall {
   name: string
   environment: string
   primary_domain: string
+  site: {id: string}
+}
+
+/**
+ * A WPE "site" groups the production/staging/development installs that share a
+ * codebase. Local stores the site ID in `remoteSiteId`, not the install ID.
+ */
+interface WpeSite {
+  id: string
+  name: string
+  installs: Array<{id: string; name: string; environment: string}>
 }
 
 interface WpeAccount {
@@ -49,6 +60,13 @@ function loadCredentials(): WpeCredentials {
   return data.wpengine
 }
 
+export class WpeApiError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message)
+    this.name = 'WpeApiError'
+  }
+}
+
 async function wpeRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const creds = loadCredentials()
   const auth = Buffer.from(`${creds.username}:${creds.password}`).toString('base64')
@@ -67,7 +85,7 @@ async function wpeRequest<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    throw new Error(`WPE API ${response.status}: ${response.statusText}\n${body}`)
+    throw new WpeApiError(response.status, `WPE API ${response.status}: ${response.statusText}\n${body}`)
   }
 
   if (response.status === 204) return {} as T
@@ -80,6 +98,32 @@ export async function getCurrentUser(): Promise<{id: string; email: string; firs
 
 export async function getInstall(installId: string): Promise<WpeInstall> {
   return wpeRequest<WpeInstall>(`/installs/${installId}`)
+}
+
+export async function getSite(siteId: string): Promise<WpeSite> {
+  return wpeRequest<WpeSite>(`/sites/${siteId}`)
+}
+
+/**
+ * Local's `remoteSiteId` is a WPE site ID, but earlier versions of this CLI
+ * wrote an install ID into the same field. Accept either: try the install
+ * endpoint first, then fall back to the site's install for `environment`.
+ */
+export async function resolveInstall(remoteSiteId: string, environment?: string): Promise<WpeInstall> {
+  try {
+    return await getInstall(remoteSiteId)
+  } catch (error) {
+    if (!(error instanceof WpeApiError) || error.status !== 404) throw error
+  }
+
+  const site = await getSite(remoteSiteId)
+  const match =
+    site.installs.find(i => i.environment === environment) ||
+    site.installs.find(i => i.environment === 'production') ||
+    site.installs[0]
+
+  if (!match) throw new Error(`WP Engine site "${site.name}" has no installs`)
+  return getInstall(match.id)
 }
 
 export async function listAccounts(): Promise<WpeAccount[]> {
