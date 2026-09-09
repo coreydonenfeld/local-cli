@@ -5,8 +5,14 @@ import {tmpdir} from 'node:os'
 import {rsyncSshCommand, remotePath} from './wpe-ssh'
 import {buildExcludes} from './sync-excludes'
 
-interface RsyncResult {
+export interface RsyncResult {
   filesChanged: number
+  /** Items whose content moves -- the part that actually costs time. */
+  transfers: number
+  /** Local files rsync will remove because they are absent on the other side. */
+  deletions: number
+  /** Items already identical in content, needing only a timestamp or mode fix. */
+  metadataOnly: number
   output: string
 }
 
@@ -14,11 +20,34 @@ interface RsyncResult {
 export type ProgressFn = (file: string, count: number) => void
 
 /**
+ * How rsync decides a file needs sending. `size-only` skips anything whose
+ * size matches, which avoids re-sending files that differ only in timestamp;
+ * the tradeoff is that a same-size edit is missed. `checksum` reads both
+ * copies instead of trusting metadata.
+ */
+export type CompareMode = 'default' | 'size-only' | 'checksum'
+
+export interface SyncOptions {
+  excludes?: string[]
+  compare?: CompareMode
+  onProgress?: ProgressFn
+}
+
+function compareArgs(compare: CompareMode = 'default'): string[] {
+  if (compare === 'size-only') return ['--size-only']
+  if (compare === 'checksum') return ['--checksum']
+  return []
+}
+
+/**
  * rsync itemize codes: `YXcstpoguax path`, plus keywords like `*deleting`.
  * Only items rsync intends to change are printed, so these lines are the
  * change set -- the --stats block is not.
  */
 const CHANGE_LINE = /^(\*\w+|[<>ch.][fdLDS])/
+const DELETION = /^\*deleting/
+/** A leading dot means nothing transfers; only attributes differ. */
+const METADATA_ONLY = /^\.[fdLDS]/
 
 function loadIgnoreFile(webRoot: string, filename: string): string[] {
   const path = join(webRoot, filename)
@@ -47,6 +76,9 @@ function runRsync(args: string[], onProgress?: ProgressFn, timeout?: number): Pr
     let stderr = ''
     let pending = ''
     let filesChanged = 0
+    let transfers = 0
+    let deletions = 0
+    let metadataOnly = 0
 
     const timer = timeout ? setTimeout(() => child.kill('SIGTERM'), timeout) : undefined
 
@@ -61,6 +93,9 @@ function runRsync(args: string[], onProgress?: ProgressFn, timeout?: number): Pr
       for (const line of lines) {
         if (!CHANGE_LINE.test(line)) continue
         filesChanged++
+        if (DELETION.test(line)) deletions++
+        else if (METADATA_ONLY.test(line)) metadataOnly++
+        else transfers++
         onProgress?.(line.replace(/^\S+\s+/, ''), filesChanged)
       }
     })
@@ -78,7 +113,7 @@ function runRsync(args: string[], onProgress?: ProgressFn, timeout?: number): Pr
       if (timer) clearTimeout(timer)
       // 24 = "some files vanished before they could be transferred"
       if (code === 0 || code === 24) {
-        resolve({filesChanged, output})
+        resolve({filesChanged, transfers, deletions, metadataOnly, output})
         return
       }
       reject(new Error(`rsync exited with code ${code}\n${stderr}`))
@@ -97,18 +132,25 @@ function baseArgs(excludeFile: string): string[] {
   ]
 }
 
+/** One line naming the work, so a metadata-only run cannot look like a transfer. */
+export function summarizeChanges(result: RsyncResult): string {
+  const parts = [`${result.transfers} to transfer`]
+  if (result.metadataOnly > 0) parts.push(`${result.metadataOnly} timestamp-only`)
+  if (result.deletions > 0) parts.push(`${result.deletions} to delete`)
+  return `${result.filesChanged} change(s): ${parts.join(', ')}`
+}
+
 export async function dryRunSync(
   installName: string,
   webRoot: string,
   direction: 'push' | 'pull',
-  extraExcludes: string[] = [],
-  onProgress?: ProgressFn,
+  options: SyncOptions = {},
 ): Promise<RsyncResult> {
-  const excludeFile = buildExcludeFile(webRoot, direction, extraExcludes)
+  const excludeFile = buildExcludeFile(webRoot, direction, options.excludes ?? [])
   const remote = remotePath(installName)
   const local = webRoot.endsWith('/') ? webRoot : `${webRoot}/`
 
-  const args = [...baseArgs(excludeFile), '--dry-run']
+  const args = [...baseArgs(excludeFile), ...compareArgs(options.compare), '--dry-run']
 
   if (direction === 'pull') {
     args.push('--delete', remote, local)
@@ -117,7 +159,7 @@ export async function dryRunSync(
   }
 
   try {
-    return await runRsync(args, onProgress, 120_000)
+    return await runRsync(args, options.onProgress, 120_000)
   } finally {
     rmSync(excludeFile, {recursive: true, force: true})
   }
@@ -127,14 +169,13 @@ export async function executeSync(
   installName: string,
   webRoot: string,
   direction: 'push' | 'pull',
-  extraExcludes: string[] = [],
-  onProgress?: ProgressFn,
+  options: SyncOptions = {},
 ): Promise<RsyncResult> {
-  const excludeFile = buildExcludeFile(webRoot, direction, extraExcludes)
+  const excludeFile = buildExcludeFile(webRoot, direction, options.excludes ?? [])
   const remote = remotePath(installName)
   const local = webRoot.endsWith('/') ? webRoot : `${webRoot}/`
 
-  const args = baseArgs(excludeFile)
+  const args = [...baseArgs(excludeFile), ...compareArgs(options.compare)]
 
   if (direction === 'pull') {
     args.push('--delete', remote, local)
@@ -144,7 +185,7 @@ export async function executeSync(
   }
 
   try {
-    return await runRsync(args, onProgress)
+    return await runRsync(args, options.onProgress)
   } finally {
     rmSync(excludeFile, {recursive: true, force: true})
   }

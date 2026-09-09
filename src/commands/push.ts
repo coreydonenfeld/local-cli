@@ -3,12 +3,12 @@ import confirm from '@inquirer/confirm'
 import {resolveWpeSite} from '../helpers/wpe-site'
 import {ensureKeyRegistered} from '../helpers/wpe-ssh'
 import {createBackup, purgeCache} from '../helpers/wpe-api'
-import {dryRunSync, executeSync} from '../helpers/wpe-rsync'
+import {dryRunSync, executeSync, summarizeChanges, type CompareMode} from '../helpers/wpe-rsync'
 import {pushDatabase} from '../helpers/wpe-db'
 import {printPanel} from '../helpers/display'
 import {promptTheme} from '../helpers/prompts'
 import {pickSite} from '../helpers/pick-site'
-import {startSpinner} from '../helpers/progress'
+import {startSpinner, formatDuration} from '../helpers/progress'
 
 export default class Push extends Command {
   static description = 'push files (and optionally database) to WP Engine'
@@ -30,11 +30,20 @@ export default class Push extends Command {
     'dry-run': Flags.boolean({description: 'show what would change without pushing', default: false}),
     'no-backup': Flags.boolean({description: 'skip pre-push backup on WPE (not recommended)', default: false}),
     exclude: Flags.string({description: 'exclude path from sync (repeatable)', multiple: true}),
+    'size-only': Flags.boolean({
+      description: 'compare by size only, ignoring timestamps (faster; misses same-size edits)',
+      default: false,
+    }),
+    checksum: Flags.boolean({
+      description: 'compare by checksum instead of size and timestamp (slowest; most accurate)',
+      default: false,
+    }),
   }
 
   async run(): Promise<void> {
     const {args, flags} = await this.parse(Push)
     const excludes = flags.exclude || []
+    const compare: CompareMode = flags.checksum ? 'checksum' : flags['size-only'] ? 'size-only' : 'default'
     const siteInput = args.site || await pickSite()
 
     let info
@@ -92,15 +101,17 @@ export default class Push extends Command {
     if (!flags['db-only']) {
       console.log('')
       const checking = startSpinner('Checking for changes...')
-      const preview = await dryRunSync(info.installName, info.webRoot, 'push', excludes, (file, count) => {
-        checking.update(`Checking for changes... ${count} found - ${file}`)
+      const preview = await dryRunSync(info.installName, info.webRoot, 'push', {
+        excludes,
+        compare,
+        onProgress: (file, count) => checking.update(`Checking for changes... ${count} found ${file}`),
       })
       checking.stop()
 
       if (preview.filesChanged === 0) {
         console.log('No file changes to push.')
       } else {
-        console.log(`${preview.filesChanged} file(s) will be modified.\n`)
+        console.log(summarizeChanges(preview) + '\n')
 
         if (flags['dry-run']) {
           console.log(preview.output)
@@ -119,11 +130,16 @@ export default class Push extends Command {
         }
 
         const total = preview.filesChanged
-        const pushing = startSpinner(`Pushing ${total} file(s)...`)
-        const result = await executeSync(info.installName, info.webRoot, 'push', excludes, (file, count) => {
-          pushing.update(`[${count}/${total}] ${file}`)
+        const spinner = startSpinner(`Pushing ${total} file(s)...`)
+        const result = await executeSync(info.installName, info.webRoot, 'push', {
+          excludes,
+          compare,
+          onProgress: (file, count) => {
+            const pct = Math.floor((count / total) * 100)
+            spinner.update(`[${count}/${total}] ${pct}% ${file}`)
+          },
         })
-        pushing.stop(`✓ ${result.filesChanged} file(s) synced`)
+        spinner.stop(`✓ ${result.filesChanged} file(s) synced in ${formatDuration(spinner.elapsed())}`)
       }
     }
 

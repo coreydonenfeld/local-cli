@@ -54,8 +54,7 @@
       "args": {
         "site": {
           "description": "site name, ID, or domain",
-          "name": "site",
-          "required": true
+          "name": "site"
         }
       },
       "description": "link a local site to a WP Engine environment",
@@ -188,13 +187,35 @@
         "list-sites.js"
       ]
     },
+    "open": {
+      "aliases": [],
+      "args": {},
+      "description": "open the Local app",
+      "examples": [
+        "$ local-cli open"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "open",
+      "pluginAlias": "local-cli",
+      "pluginName": "local-cli",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": false,
+      "relativePath": [
+        "dist",
+        "commands",
+        "open.js"
+      ]
+    },
     "pull": {
       "aliases": [],
       "args": {
         "site": {
           "description": "site name, ID, or domain",
-          "name": "site",
-          "required": true
+          "name": "site"
         }
       },
       "description": "pull files (and optionally database) from WP Engine",
@@ -229,6 +250,18 @@
           "hasDynamicHelp": false,
           "multiple": true,
           "type": "option"
+        },
+        "size-only": {
+          "description": "compare by size only, ignoring timestamps (faster; misses same-size edits)",
+          "name": "size-only",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "checksum": {
+          "description": "compare by checksum instead of size and timestamp (slowest; most accurate)",
+          "name": "checksum",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
@@ -251,8 +284,7 @@
       "args": {
         "site": {
           "description": "site name, ID, or domain",
-          "name": "site",
-          "required": true
+          "name": "site"
         }
       },
       "description": "push files (and optionally database) to WP Engine",
@@ -293,6 +325,18 @@
           "hasDynamicHelp": false,
           "multiple": true,
           "type": "option"
+        },
+        "size-only": {
+          "description": "compare by size only, ignoring timestamps (faster; misses same-size edits)",
+          "name": "size-only",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "checksum": {
+          "description": "compare by checksum instead of size and timestamp (slowest; most accurate)",
+          "name": "checksum",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
