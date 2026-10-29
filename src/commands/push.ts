@@ -38,6 +38,10 @@ export default class Push extends Command {
       description: 'compare by checksum instead of size and timestamp (slowest; most accurate)',
       default: false,
     }),
+    update: Flags.boolean({
+      description: 'skip local files that are newer than the remote (does not stop --delete)',
+      default: false,
+    }),
   }
 
   async run(): Promise<void> {
@@ -104,6 +108,7 @@ export default class Push extends Command {
       const preview = await dryRunSync(info.installName, info.webRoot, 'push', {
         excludes,
         compare,
+        update: flags.update,
         onProgress: (file, count) => checking.update(`Checking for changes... ${count} found ${file}`),
       })
       checking.stop()
@@ -134,6 +139,7 @@ export default class Push extends Command {
         const result = await executeSync(info.installName, info.webRoot, 'push', {
           excludes,
           compare,
+          update: flags.update,
           onProgress: (file, count) => {
             const pct = Math.floor((count / total) * 100)
             spinner.update(`[${count}/${total}] ${pct}% ${file}`)

@@ -8,6 +8,7 @@ import {hasWpeConnection, resolveWpeSite} from '../helpers/wpe-site'
 import {hasCredentials} from '../helpers/wpe-api'
 import {ensureLocalRunning} from '../helpers/ensure-local'
 import {promptTheme} from '../helpers/prompts'
+import {startSpinner, formatDuration} from '../helpers/progress'
 import confirm from '@inquirer/confirm'
 
 const STUCK_STATES = ['stopping', 'starting', 'restarting']
@@ -280,7 +281,11 @@ export default class Sites extends Command {
                 const {ensureKeyRegistered} = await import('../helpers/wpe-ssh')
                 const {dryRunSync, executeSync} = await import('../helpers/wpe-rsync')
                 await ensureKeyRegistered()
-                const preview = await dryRunSync(info.installName, info.webRoot, 'pull')
+                const checking = startSpinner('Checking for changes...')
+                const preview = await dryRunSync(info.installName, info.webRoot, 'pull', {
+                  onProgress: (file, count) => checking.update(`Checking for changes... ${count} found ${file}`),
+                })
+                checking.stop()
                 if (preview.filesChanged === 0) {
                   notice = '✓ No changes to pull'
                 } else {
@@ -294,8 +299,16 @@ export default class Sites extends Command {
                   if (yes) {
                     clearScreen()
                     printPanel(site, `↓ Pulling ${preview.filesChanged} file(s)...`)
-                    const result = await executeSync(info.installName, info.webRoot, 'pull')
-                    notice = `✓ Pulled ${result.filesChanged} file(s) from ${info.installName}`
+                    const total = preview.filesChanged
+                    const spinner = startSpinner('Starting transfer...')
+                    const result = await executeSync(info.installName, info.webRoot, 'pull', {
+                      onProgress: (file, count) => {
+                        const pct = Math.floor((count / total) * 100)
+                        spinner.update(`[${count}/${total}] ${pct}% ${file}`)
+                      },
+                    })
+                    spinner.stop()
+                    notice = `✓ Pulled ${result.filesChanged} file(s) from ${info.installName} in ${formatDuration(spinner.elapsed())}`
                   }
                 }
               } catch (err) {
@@ -330,7 +343,11 @@ export default class Sites extends Command {
                 printPanel(site, '↑ Creating backup on WPE...')
                 try { await createBackup(info.installId) } catch {}
 
-                const preview = await dryRunSync(info.installName, info.webRoot, 'push')
+                const checking = startSpinner('Checking for changes...')
+                const preview = await dryRunSync(info.installName, info.webRoot, 'push', {
+                  onProgress: (file, count) => checking.update(`Checking for changes... ${count} found ${file}`),
+                })
+                checking.stop()
                 if (preview.filesChanged === 0) {
                   notice = '✓ No changes to push'
                 } else {
@@ -344,9 +361,17 @@ export default class Sites extends Command {
                   if (yes) {
                     clearScreen()
                     printPanel(site, `↑ Pushing ${preview.filesChanged} file(s)...`)
-                    const result = await executeSync(info.installName, info.webRoot, 'push')
+                    const total = preview.filesChanged
+                    const spinner = startSpinner('Starting transfer...')
+                    const result = await executeSync(info.installName, info.webRoot, 'push', {
+                      onProgress: (file, count) => {
+                        const pct = Math.floor((count / total) * 100)
+                        spinner.update(`[${count}/${total}] ${pct}% ${file}`)
+                      },
+                    })
+                    spinner.stop()
                     await purgeCache(info.installId)
-                    notice = `✓ Pushed ${result.filesChanged} file(s) to ${info.installName}`
+                    notice = `✓ Pushed ${result.filesChanged} file(s) to ${info.installName} in ${formatDuration(spinner.elapsed())}`
                   }
                 }
               } catch (err) {

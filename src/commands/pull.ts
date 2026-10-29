@@ -10,11 +10,12 @@ import {pickSite} from '../helpers/pick-site'
 import {startSpinner, formatDuration} from '../helpers/progress'
 
 export default class Pull extends Command {
-  static description = 'pull files (and optionally database) from WP Engine'
+  static description = 'pull files and database from WP Engine'
 
   static examples = [
     '$ local-cli pull my-site',
-    '$ local-cli pull my-site --db',
+    '$ local-cli pull my-site --no-db',
+    '$ local-cli pull my-site --no-files',
     '$ local-cli pull my-site --dry-run',
     '$ local-cli pull my-site --exclude wp-content/uploads',
   ]
@@ -24,8 +25,8 @@ export default class Pull extends Command {
   }
 
   static flags = {
-    db: Flags.boolean({description: 'include database', default: false}),
-    'db-only': Flags.boolean({description: 'pull database only, skip files', default: false}),
+    db: Flags.boolean({description: 'include database (--no-db to skip)', default: true, allowNo: true}),
+    files: Flags.boolean({description: 'include files (--no-files to skip)', default: true, allowNo: true}),
     'dry-run': Flags.boolean({description: 'show what would change without pulling', default: false}),
     exclude: Flags.string({description: 'exclude path from sync (repeatable)', multiple: true}),
     'size-only': Flags.boolean({
@@ -36,12 +37,21 @@ export default class Pull extends Command {
       description: 'compare by checksum instead of size and timestamp (slowest; most accurate)',
       default: false,
     }),
+    update: Flags.boolean({
+      description: 'skip local files that are newer than the remote (does not stop --delete)',
+      default: false,
+    }),
   }
 
   async run(): Promise<void> {
     const {args, flags} = await this.parse(Pull)
     const excludes = flags.exclude || []
     const compare: CompareMode = flags.checksum ? 'checksum' : flags['size-only'] ? 'size-only' : 'default'
+    if (!flags.files && !flags.db) {
+      console.log('Nothing to pull: --no-files and --no-db cancel each other out.')
+      return
+    }
+
     const siteInput = args.site || await pickSite()
 
     let info
@@ -57,13 +67,14 @@ export default class Pull extends Command {
 
     await ensureKeyRegistered()
 
-    if (!flags['db-only']) {
+    if (flags.files) {
       // Always dry-run first to show what will change
       console.log('')
       const checking = startSpinner('Checking for changes...')
       const preview = await dryRunSync(info.installName, info.webRoot, 'pull', {
         excludes,
         compare,
+        update: flags.update,
         onProgress: (file, count) => checking.update(`Checking for changes... ${count} found ${file}`),
       })
       checking.stop()
@@ -96,6 +107,7 @@ export default class Pull extends Command {
         const result = await executeSync(info.installName, info.webRoot, 'pull', {
           excludes,
           compare,
+          update: flags.update,
           onProgress: (file, count) => {
             const pct = Math.floor((count / total) * 100)
             spinner.update(`[${count}/${total}] ${pct}% ${file}`)
@@ -105,7 +117,7 @@ export default class Pull extends Command {
       }
     }
 
-    if (flags.db || flags['db-only']) {
+    if (flags.db) {
       const dbConfirm = await confirm({
         message: `Pull database from ${info.installName}? This will OVERWRITE your local database.`,
         default: false,

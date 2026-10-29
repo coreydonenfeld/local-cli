@@ -30,6 +30,12 @@ export type CompareMode = 'default' | 'size-only' | 'checksum'
 export interface SyncOptions {
   excludes?: string[]
   compare?: CompareMode
+  /**
+   * Leave a destination file alone when it is newer than the source. Guards
+   * local edits, not local additions -- pull still runs --delete, so a file
+   * present on one side only is removed regardless.
+   */
+  update?: boolean
   onProgress?: ProgressFn
 }
 
@@ -37,6 +43,10 @@ function compareArgs(compare: CompareMode = 'default'): string[] {
   if (compare === 'size-only') return ['--size-only']
   if (compare === 'checksum') return ['--checksum']
   return []
+}
+
+function optionArgs(options: SyncOptions): string[] {
+  return [...compareArgs(options.compare), ...(options.update ? ['--update'] : [])]
 }
 
 /**
@@ -69,9 +79,33 @@ function buildExcludeFile(webRoot: string, direction: 'push' | 'pull', extraExcl
   return excludeFile
 }
 
-function runRsync(args: string[], onProgress?: ProgressFn, timeout?: number): Promise<RsyncResult> {
+const LOCAL_RSYNC = '/Applications/Local.app/Contents/Resources/extraResources/bin/rsync/darwin/rsync'
+
+/**
+ * Local ships rsync 3.1.3; macOS only carries openrsync. openrsync speaks
+ * protocol 29, so it builds the entire file list before a single byte moves,
+ * and it has no --skip-compress, so --compress spends CPU deflating JPEGs that
+ * cannot shrink. Local's binary is also the one Local's own WPE sync runs, so
+ * it is proven against that endpoint. Fall back only when Local is not
+ * installed, and drop 3.x-only flags in that case.
+ */
+const RSYNC = existsSync(LOCAL_RSYNC)
+  ? {bin: LOCAL_RSYNC, modern: true}
+  : {bin: 'rsync', modern: false}
+
+/**
+ * Abandon a transfer that has gone silent. ssh keepalives cannot cover this:
+ * WPE's sshd keeps answering them while the rsync behind it is wedged, so the
+ * session sits ESTABLISHED and idle indefinitely.
+ */
+const STALL_TIMEOUT_S = 300
+
+/** rsync excludes this from the transfer itself, so it needs no exclude entry. */
+const PARTIAL_DIR = '.rsync-partial'
+
+function runRsync(args: string[], onProgress?: ProgressFn): Promise<RsyncResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn('rsync', args)
+    const child = spawn(RSYNC.bin, args)
     let output = ''
     let stderr = ''
     let pending = ''
@@ -79,8 +113,6 @@ function runRsync(args: string[], onProgress?: ProgressFn, timeout?: number): Pr
     let transfers = 0
     let deletions = 0
     let metadataOnly = 0
-
-    const timer = timeout ? setTimeout(() => child.kill('SIGTERM'), timeout) : undefined
 
     child.stdout.on('data', (chunk: Buffer) => {
       const text = chunk.toString()
@@ -105,15 +137,22 @@ function runRsync(args: string[], onProgress?: ProgressFn, timeout?: number): Pr
     })
 
     child.on('error', err => {
-      if (timer) clearTimeout(timer)
       reject(err)
     })
 
     child.on('close', code => {
-      if (timer) clearTimeout(timer)
       // 24 = "some files vanished before they could be transferred"
       if (code === 0 || code === 24) {
         resolve({filesChanged, transfers, deletions, metadataOnly, output})
+        return
+      }
+      // 30 = --timeout tripped. WPE goes quiet mid-transfer often enough that
+      // the bare code reads as a tool bug rather than the remote stopping.
+      if (code === 30) {
+        reject(new Error(
+          `WP Engine sent nothing for ${STALL_TIMEOUT_S}s, so the transfer was abandoned. `
+          + `Re-run to resume from the bytes that already arrived.`,
+        ))
         return
       }
       reject(new Error(`rsync exited with code ${code}\n${stderr}`))
@@ -125,8 +164,16 @@ function baseArgs(excludeFile: string): string[] {
   return [
     '--recursive', '--links', '--times', '--compress',
     '--stats',
+    `--timeout=${STALL_TIMEOUT_S}`,
+    // Resume instead of refetching. Staged in a side directory rather than
+    // bare --partial, which parks a truncated file at the real path -- where
+    // --update can then read it as newer than the remote and skip it for good.
+    `--partial-dir=${PARTIAL_DIR}`,
     // One line per changed item, so progress and the change count are real.
     '--out-format=%i %n',
+    // Without this the lines reach us in 4KB blocks and the counter sits still
+    // for minutes at a time, which reads as a hang.
+    ...(RSYNC.modern ? ['--outbuf=L'] : []),
     '--exclude-from', excludeFile,
     '-e', rsyncSshCommand(),
   ]
@@ -150,7 +197,7 @@ export async function dryRunSync(
   const remote = remotePath(installName)
   const local = webRoot.endsWith('/') ? webRoot : `${webRoot}/`
 
-  const args = [...baseArgs(excludeFile), ...compareArgs(options.compare), '--dry-run']
+  const args = [...baseArgs(excludeFile), ...optionArgs(options), '--dry-run']
 
   if (direction === 'pull') {
     args.push('--delete', remote, local)
@@ -159,7 +206,7 @@ export async function dryRunSync(
   }
 
   try {
-    return await runRsync(args, options.onProgress, 120_000)
+    return await runRsync(args, options.onProgress)
   } finally {
     rmSync(excludeFile, {recursive: true, force: true})
   }
@@ -175,7 +222,7 @@ export async function executeSync(
   const remote = remotePath(installName)
   const local = webRoot.endsWith('/') ? webRoot : `${webRoot}/`
 
-  const args = [...baseArgs(excludeFile), ...compareArgs(options.compare)]
+  const args = [...baseArgs(excludeFile), ...optionArgs(options)]
 
   if (direction === 'pull') {
     args.push('--delete', remote, local)

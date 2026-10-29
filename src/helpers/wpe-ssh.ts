@@ -14,7 +14,7 @@ const SSH_FLAGS = [
   '-o', 'PubkeyAcceptedKeyTypes=+ssh-rsa',
   '-o', 'StrictHostKeyChecking=accept-new',
   '-o', 'ServerAliveInterval=60',
-  '-o', 'ServerAliveCountMax=120',
+  '-o', 'ServerAliveCountMax=3',
   '-i', KEY_PATH,
 ]
 
@@ -54,7 +54,7 @@ export function sshArgs(installName: string, prefix: string): string[] {
 
 /** Returns rsync -e value with properly quoted key path */
 export function rsyncSshCommand(): string {
-  return `ssh -F /dev/null -o IdentitiesOnly=yes -o "PubkeyAcceptedKeyTypes=+ssh-rsa" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=60 -o ServerAliveCountMax=120 -i "${KEY_PATH}"`
+  return `ssh -F /dev/null -o IdentitiesOnly=yes -o "PubkeyAcceptedKeyTypes=+ssh-rsa" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i "${KEY_PATH}"`
 }
 
 export function remotePath(installName: string): string {
