@@ -16,7 +16,8 @@ export abstract class SiteActionCommand extends Command {
   abstract action: ActionFn
 
   async run(): Promise<void> {
-    const {args} = await this.parse(this.constructor as typeof SiteActionCommand)
+    // oclif spreads the class into its parse options, which drops inherited statics
+    const {args} = await this.parse({args: SiteActionCommand.args})
 
     if (!await ensureLocalRunning()) return
 
@@ -33,7 +34,7 @@ export abstract class SiteActionCommand extends Command {
       }
       printPanel(site, `${this.actionIcon} ${site.name} is now ${site.status}`)
     } catch {
-      console.log(`▲ Failed to ${this.actionLabel.toLowerCase()} site. Is the ID correct?`)
+      console.log(`▲ ${this.actionLabel} site failed. Is the ID correct?`)
     }
   }
 }
