@@ -1,11 +1,14 @@
 import {execFileSync} from 'node:child_process'
-import {existsSync, writeFileSync, mkdtempSync, rmSync} from 'node:fs'
+import {writeFileSync, mkdtempSync, mkdirSync, rmSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {sshArgs, rsyncSshCommand} from './wpe-ssh'
+import {resolveToolchain, wpCliArgs, type LocalToolchain} from './local-toolchain'
 
 const WP_FLAGS = ['--skip-plugins', '--skip-themes']
 const DUMP_FLAGS = ['--no-tablespaces=true', '--single-transaction', '--quick', '--lock-tables=false']
+/** Local names every site's schema `local`, whatever the site itself is called. */
+const LOCAL_DB = 'local'
 
 function sshExec(installName: string, prefix: string, command: string, timeout = 300_000): string {
   const ssh = sshArgs(installName, prefix)
@@ -38,12 +41,30 @@ function getRemoteTablePrefix(installName: string): string {
   }
 }
 
+/** Timestamped so a second pull on the same day cannot overwrite the first. */
+function backupPath(localSitePath: string): string {
+  const dir = join(localSitePath, 'local-cli-backups')
+  mkdirSync(dir, {recursive: true})
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '')
+  return join(dir, `db-backup-${stamp}.sql`)
+}
+
+function localSearchReplace(tools: LocalToolchain, from: string, to: string, webRoot: string): void {
+  execFileSync(tools.php, wpCliArgs(tools, [
+    ...WP_FLAGS, 'search-replace', `//${from}`, `//${to}`,
+    '--all-tables', '--skip-columns=guid', '--precise',
+    `--path=${webRoot}`,
+  ]), {encoding: 'utf-8', timeout: 120_000})
+}
+
 export function pullDatabase(
   installName: string,
   remoteDomain: string,
   localDomain: string,
   localSitePath: string,
+  siteId: string,
 ): void {
+  const tools = resolveToolchain(siteId)
   const webRoot = join(localSitePath, 'app', 'public')
   const tmpDir = mkdtempSync(join(tmpdir(), 'local-cli-db-'))
   const sqlFile = join(tmpDir, 'db-pull.sql')
@@ -62,30 +83,24 @@ export function pullDatabase(
 
     writeFileSync(sqlFile, dump)
 
+    // Before the import, not after: the import is what destroys the old copy.
+    const backup = backupPath(localSitePath)
+    console.log('Backing up local database...')
+    writeFileSync(backup, execFileSync(tools.mysqldump, [
+      `--defaults-file=${tools.myCnf}`, '--databases', LOCAL_DB, ...DUMP_FLAGS,
+    ], {encoding: 'buffer', maxBuffer: 500 * 1024 * 1024, timeout: 300_000}))
+    console.log(`  saved to ${backup}`)
+
     console.log('Importing database locally...')
-    const confPath = join(localSitePath, 'conf', 'mysql', 'my.cnf')
-    if (existsSync(confPath)) {
-      execFileSync('mysql', [`--defaults-file=${confPath}`, '-e', `source ${sqlFile}`], {
-        encoding: 'utf-8',
-        timeout: 300_000,
-      })
-    } else {
-      execFileSync('wp', ['db', 'import', sqlFile, `--path=${webRoot}`], {
-        encoding: 'utf-8',
-        timeout: 300_000,
-      })
-    }
+    // WPE's dump is tables only, with no USE line, so the schema has to be
+    // named here or the first CREATE TABLE fails with "No database selected".
+    execFileSync(tools.mysql, [`--defaults-file=${tools.myCnf}`, LOCAL_DB, '-e', `source ${sqlFile}`], {
+      encoding: 'utf-8',
+      timeout: 300_000,
+    })
 
     console.log(`Replacing ${remoteDomain} → ${localDomain}...`)
-    try {
-      execFileSync('wp', [
-        'search-replace', `//${remoteDomain}`, `//${localDomain}`,
-        '--all-tables', '--skip-columns=guid', '--precise',
-        `--path=${webRoot}`,
-      ], {encoding: 'utf-8', timeout: 120_000})
-    } catch {
-      console.log('▲ search-replace failed (wp-cli may not be available locally)')
-    }
+    localSearchReplace(tools, remoteDomain, localDomain, webRoot)
   } finally {
     rmSync(tmpDir, {recursive: true, force: true})
   }
@@ -96,8 +111,9 @@ export function pushDatabase(
   remoteDomain: string,
   localDomain: string,
   localSitePath: string,
+  siteId: string,
 ): void {
-  const webRoot = join(localSitePath, 'app', 'public')
+  const tools = resolveToolchain(siteId)
   const tmpDir = mkdtempSync(join(tmpdir(), 'local-cli-db-'))
   const sqlFile = join(tmpDir, 'db-push.sql')
   const remoteFile = `/sites/${installName}/_wpeprivate/db-push.sql`
@@ -105,10 +121,11 @@ export function pushDatabase(
 
   try {
     console.log('Exporting local database...')
-    execFileSync('wp', [
-      'db', 'export', sqlFile, `--path=${webRoot}`,
-      '--single-transaction', '--quick',
-    ], {encoding: 'utf-8', timeout: 300_000})
+    // Plain db name, not --databases: that form carries CREATE DATABASE/USE
+    // statements, which would aim the remote import at a schema called `local`.
+    writeFileSync(sqlFile, execFileSync(tools.mysqldump, [
+      `--defaults-file=${tools.myCnf}`, LOCAL_DB, ...DUMP_FLAGS,
+    ], {encoding: 'buffer', maxBuffer: 500 * 1024 * 1024, timeout: 300_000}))
 
     console.log('Uploading database to WPE...')
     const sshCmd = rsyncSshCommand()

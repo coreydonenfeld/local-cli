@@ -151,7 +151,7 @@ export default class Push extends Command {
       })
 
       if (dbConfirm) {
-        pushDatabase(info.installName, info.remoteDomain, info.siteDomain, info.sitePath)
+        pushDatabase(info.installName, info.remoteDomain, info.siteDomain, info.sitePath, info.siteId)
         console.log('✓ Database pushed and domain replaced')
       }
     }

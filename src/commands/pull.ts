@@ -113,7 +113,7 @@ export default class Pull extends Command {
       })
 
       if (dbConfirm) {
-        pullDatabase(info.installName, info.remoteDomain, info.siteDomain, info.sitePath)
+        pullDatabase(info.installName, info.remoteDomain, info.siteDomain, info.sitePath, info.siteId)
         console.log('✓ Database pulled and domain replaced')
       }
     }
