@@ -87,7 +87,7 @@ export async function restartSite(siteID: string): Promise<Site> {
 
 export async function addSite(input: AddSiteInput): Promise<Job> {
   const query = `
-    mutation ($input: AddSiteInput) {
+    mutation ($input: AddSiteInput!) {
       addSite(input: $input) {
         id
         status
